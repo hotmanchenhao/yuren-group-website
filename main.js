@@ -1041,120 +1041,276 @@ const TRANSLATIONS = {
 };
 
 // ============================================
-// I18N ENGINE
+// I18N ENGINE - Complete Implementation
 // ============================================
-const I18N = {
-  currentLang: 'zh',
+
+const I18N_CONFIG = {
+  defaultLang: 'zh',
+  storageKey: 'yuren_lang',
   supportedLangs: ['zh', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru'],
-
-  init() {
-    const saved = localStorage.getItem('yuren_lang');
-    const browser = navigator.language.split('-')[0];
-    this.currentLang = saved || (this.supportedLangs.includes(browser) ? browser : 'zh');
-    this.apply();
-    this.updateSelector();
+  langLabels: {
+    zh: '\u4e2d\u6587',
+    en: 'English',
+    ja: '\u65e5\u672c\u8a9e',
+    ko: '\ud55c\uad6d\uc5b4',
+    fr: 'Fran\u00e7ais',
+    de: 'Deutsch',
+    es: 'Espa\u00f1ol',
+    ru: '\u0420\u0443\u0441\u0441\u043a\u0438\u0439',
   },
-
-  t(key) {
-    const lang = TRANSLATIONS[this.currentLang] || TRANSLATIONS['zh'];
-    return lang[key] || TRANSLATIONS['zh'][key] || key;
+  langFlags: {
+    zh: '\ud83c\udde8\ud83c\uddf3',
+    en: '\ud83c\uddfa\ud83c\uddf8',
+    ja: '\ud83c\uddef\ud83c\uddf5',
+    ko: '\ud83c\uddf0\ud83c\uddf7',
+    fr: '\ud83c\uddeb\ud83c\uddf7',
+    de: '\ud83c\udde9\ud83c\uddea',
+    es: '\ud83c\uddea\ud83c\uddf8',
+    ru: '\ud83c\uddf7\ud83c\uddfa',
   },
-
-  apply() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      const text = this.t(key);
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-        el.placeholder = text;
-      } else {
-        el.textContent = text;
-      }
-    });
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-      const key = el.getAttribute('data-i18n-placeholder');
-      el.placeholder = this.t(key);
-    });
-    document.documentElement.lang = this.currentLang;
-  },
-
-  setLang(lang) {
-    if (this.supportedLangs.includes(lang)) {
-      this.currentLang = lang;
-      localStorage.setItem('yuren_lang', lang);
-      this.apply();
-      this.updateSelector();
-    }
-  },
-
-  updateSelector() {
-    const selector = document.getElementById('lang-selector');
-    if (selector) selector.value = this.currentLang;
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.lang === this.currentLang);
-    });
-  }
 };
+
+let currentLang = I18N_CONFIG.defaultLang;
+
+function t(key) {
+  const langData = TRANSLATIONS[currentLang] || TRANSLATIONS[I18N_CONFIG.defaultLang];
+  return langData[key] || TRANSLATIONS[I18N_CONFIG.defaultLang][key] || key;
+}
+
+function getTranslation(key) { return t(key); }
+
+function changeLanguage(lang) {
+  if (!I18N_CONFIG.supportedLangs.includes(lang)) {
+    console.warn('Unsupported language: ' + lang);
+    return;
+  }
+  currentLang = lang;
+  localStorage.setItem(I18N_CONFIG.storageKey, lang);
+  applyTranslations();
+  updateLangButton();
+  updateDocumentLang();
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    const key = el.getAttribute('data-i18n');
+    const text = t(key);
+    if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.type !== 'submit') {
+      el.placeholder = text;
+    } else if (el.tagName === 'INPUT' && el.type === 'submit') {
+      el.value = text;
+    } else {
+      el.textContent = text;
+    }
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+    el.title = t(el.getAttribute('data-i18n-title'));
+  });
+  document.querySelectorAll('[data-page-title]').forEach(function(el) {
+    document.title = t(el.getAttribute('data-page-title')) + ' | Jiangsu Yuren Group';
+  });
+  window.dispatchEvent(new CustomEvent('languageChanged', { detail: { lang: currentLang } }));
+}
+
+function updateLangButton() {
+  const langBtnText = document.getElementById('lang-btn-text');
+  if (langBtnText) {
+    const flag = I18N_CONFIG.langFlags[currentLang] || '';
+    const label = I18N_CONFIG.langLabels[currentLang] || currentLang;
+    langBtnText.textContent = flag + ' ' + label;
+  }
+  document.querySelectorAll('.lang-dropdown a').forEach(function(link) {
+    link.classList.toggle('active', link.getAttribute('data-lang') === currentLang);
+  });
+  const langSelector = document.getElementById('lang-selector');
+  if (langSelector) { langSelector.value = currentLang; }
+}
+
+function updateDocumentLang() {
+  const langMap = { zh: 'zh-CN', en: 'en', ja: 'ja', ko: 'ko', fr: 'fr', de: 'de', es: 'es', ru: 'ru' };
+  document.documentElement.lang = langMap[currentLang] || currentLang;
+}
+
+function initLanguage() {
+  const saved = localStorage.getItem(I18N_CONFIG.storageKey);
+  if (saved && I18N_CONFIG.supportedLangs.includes(saved)) {
+    currentLang = saved;
+  } else {
+    const browserLang = navigator.language.split('-')[0];
+    currentLang = I18N_CONFIG.supportedLangs.includes(browserLang) ? browserLang : I18N_CONFIG.defaultLang;
+  }
+}
+
+function getCurrentLang() { return currentLang; }
+function isLangSupported(lang) { return I18N_CONFIG.supportedLangs.includes(lang); }
 
 // ============================================
 // MOBILE MENU
 // ============================================
 function initMobileMenu() {
-  const toggle = document.getElementById('mobile-menu-toggle');
-  const menu = document.getElementById('mobile-menu');
-  if (!toggle || !menu) return;
-
-  toggle.addEventListener('click', () => {
-    menu.classList.toggle('open');
-    toggle.classList.toggle('open');
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileNav = document.getElementById('mobile-nav');
+  if (!mobileMenuBtn || !mobileNav) return;
+  mobileMenuBtn.addEventListener('click', function() {
+    mobileMenuBtn.classList.toggle('active');
+    mobileNav.classList.toggle('open');
+    document.body.classList.toggle('menu-open');
   });
-
-  document.addEventListener('click', (e) => {
-    if (!toggle.contains(e.target) && !menu.contains(e.target)) {
-      menu.classList.remove('open');
-      toggle.classList.remove('open');
+  document.addEventListener('click', function(e) {
+    if (!mobileMenuBtn.contains(e.target) && !mobileNav.contains(e.target)) {
+      mobileMenuBtn.classList.remove('active');
+      mobileNav.classList.remove('open');
+      document.body.classList.remove('menu-open');
     }
   });
-}
-
-// ============================================
-// LANGUAGE SELECTOR
-// ============================================
-function initLangSelector() {
-  const selector = document.getElementById('lang-selector');
-  if (selector) {
-    selector.addEventListener('change', (e) => {
-      I18N.setLang(e.target.value);
-    });
-  }
-
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      I18N.setLang(btn.dataset.lang);
+  mobileNav.querySelectorAll('a').forEach(function(link) {
+    link.addEventListener('click', function() {
+      mobileMenuBtn.classList.remove('active');
+      mobileNav.classList.remove('open');
+      document.body.classList.remove('menu-open');
     });
   });
 }
 
 // ============================================
-// SCROLL EFFECTS
+// LANGUAGE SWITCHER DROPDOWN
 // ============================================
-function initScrollEffects() {
-  const header = document.querySelector('header');
-  if (header) {
-    window.addEventListener('scroll', () => {
-      header.classList.toggle('scrolled', window.scrollY > 50);
+function initLanguageSwitcher() {
+  const langBtn = document.getElementById('lang-btn');
+  const langDropdown = document.getElementById('lang-dropdown');
+  if (langBtn && langDropdown) {
+    langBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      langDropdown.classList.toggle('show');
+      langBtn.classList.toggle('active');
     });
-  }
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
+    langDropdown.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const lang = link.getAttribute('data-lang');
+        if (lang) { changeLanguage(lang); }
+        langDropdown.classList.remove('show');
+        langBtn.classList.remove('active');
+      });
+    });
+    document.addEventListener('click', function(e) {
+      if (!langBtn.contains(e.target) && !langDropdown.contains(e.target)) {
+        langDropdown.classList.remove('show');
+        langBtn.classList.remove('active');
       }
     });
-  }, { threshold: 0.1 });
+  }
+  const langSelector = document.getElementById('lang-selector');
+  if (langSelector) {
+    langSelector.addEventListener('change', function() { changeLanguage(this.value); });
+  }
+}
 
-  document.querySelectorAll('.fade-in, .slide-up').forEach(el => {
-    observer.observe(el);
+// ============================================
+// NAVBAR SCROLL EFFECTS
+// ============================================
+function initNavbarScroll() {
+  const navbar = document.getElementById('navbar');
+  if (!navbar) return;
+  let lastScroll = 0;
+  window.addEventListener('scroll', function() {
+    const currentScroll = window.pageYOffset;
+    navbar.classList.toggle('scrolled', currentScroll > 50);
+    if (currentScroll > lastScroll && currentScroll > 100) {
+      navbar.classList.add('hidden');
+    } else {
+      navbar.classList.remove('hidden');
+    }
+    lastScroll = currentScroll;
+  }, { passive: true });
+}
+
+// ============================================
+// SCROLL ANIMATIONS (Intersection Observer)
+// ============================================
+function initScrollAnimations() {
+  const revealElements = document.querySelectorAll('.reveal, .fade-in, .slide-up, [data-reveal]');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    revealElements.forEach(function(el) {
+      el.classList.add('reveal-hidden');
+      observer.observe(el);
+    });
+  } else {
+    revealElements.forEach(function(el) { el.classList.add('revealed'); });
+  }
+
+  // Counter animation
+  const counters = document.querySelectorAll('[data-counter]');
+  if ('IntersectionObserver' in window && counters.length > 0) {
+    const counterObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          animateCounter(entry.target);
+          counterObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+    counters.forEach(function(counter) { counterObserver.observe(counter); });
+  }
+}
+
+function animateCounter(element) {
+  const target = parseInt(element.getAttribute('data-counter') || element.textContent, 10);
+  if (isNaN(target)) return;
+  const duration = 2000;
+  const startTime = performance.now();
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    element.textContent = Math.floor(target * easeOut);
+    if (progress < 1) { requestAnimationFrame(update); }
+  }
+  requestAnimationFrame(update);
+}
+
+// ============================================
+// SMOOTH SCROLL
+// ============================================
+function initSmoothScroll() {
+  document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+    anchor.addEventListener('click', function(e) {
+      const targetId = this.getAttribute('href');
+      if (targetId === '#') return;
+      const target = document.querySelector(targetId);
+      if (target) {
+        e.preventDefault();
+        const navbar = document.getElementById('navbar');
+        const headerHeight = navbar ? navbar.offsetHeight : 0;
+        const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+      }
+    });
+  });
+}
+
+// ============================================
+// SCROLL TO TOP BUTTON
+// ============================================
+function initScrollToTop() {
+  const scrollTopBtn = document.getElementById('scroll-top');
+  if (!scrollTopBtn) return;
+  window.addEventListener('scroll', function() {
+    scrollTopBtn.classList.toggle('visible', window.pageYOffset > 500);
+  }, { passive: true });
+  scrollTopBtn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
 
@@ -1164,30 +1320,54 @@ function initScrollEffects() {
 function initContactForm() {
   const form = document.getElementById('contact-form');
   if (!form) return;
-
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', function(e) {
     e.preventDefault();
-    const btn = form.querySelector('[type="submit"]');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '...';
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = I18N.t('contact_form_submit');
-        form.reset();
-        alert(I18N.t('contact_form_submit') + ' ✓');
-      }, 1500);
-    }
+    const submitBtn = form.querySelector('[type="submit"]');
+    const originalText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '...'; }
+    setTimeout(function() {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+      form.reset();
+      const msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;top:20px;right:20px;background:#1a3a5c;color:white;padding:1rem 1.5rem;border-radius:8px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
+      msg.textContent = t('contact_form_submit') + ' \u2713';
+      document.body.appendChild(msg);
+      setTimeout(function() { msg.remove(); }, 3000);
+    }, 1500);
   });
 }
 
 // ============================================
-// INIT
+// INITIALIZATION - DOMContentLoaded
 // ============================================
-document.addEventListener('DOMContentLoaded', () => {
-  I18N.init();
+document.addEventListener('DOMContentLoaded', function() {
+  // 1. Initialize language from storage/browser
+  initLanguage();
+
+  // 2. Apply translations to all data-i18n elements
+  applyTranslations();
+
+  // 3. Update language button display
+  updateLangButton();
+
+  // 4. Initialize mobile menu
   initMobileMenu();
-  initLangSelector();
-  initScrollEffects();
+
+  // 5. Initialize language switcher dropdown
+  initLanguageSwitcher();
+
+  // 6. Initialize navbar scroll effects
+  initNavbarScroll();
+
+  // 7. Initialize scroll animations
+  initScrollAnimations();
+
+  // 8. Initialize smooth scroll
+  initSmoothScroll();
+
+  // 9. Initialize scroll to top button
+  initScrollToTop();
+
+  // 10. Initialize contact form
   initContactForm();
 });
